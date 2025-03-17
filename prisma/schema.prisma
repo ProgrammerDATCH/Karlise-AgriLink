@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,124 +10,330 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// User model for different types of users
 model User {
-  id           String    @id @default(uuid())
-  fullName     String
-  email        String    @unique
-  passwordHash String
-  phoneNumber  String
-  role         UserRole
-  createdAt    DateTime  @default(now())
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  phone         String?
+  role          UserRole
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   
-  assignedItems     Borrowing[] @relation("AssignedBy")
-  damageReportsLogs DamageReport[] @relation("ReportedBy")
-  systemLogs        SystemLog[]
-
-  @@map("users")
+  // Relations
+  farmer        Farmer?
+  buyer         Buyer?
+  supplier      Supplier?
+  processor     Processor?
+  reviews       Review[]
+  orders        Order[]   @relation("PlacedBy")
+  notifications Notification[]
+  sellerOrders  Order[]   @relation("SoldBy")
 }
 
 enum UserRole {
-  PROGRAM_MANAGER
-  INVENTORY_MANAGER
+  ADMIN
+  FARMER
+  BUYER
+  SUPPLIER
+  PROCESSOR
+  DISTRIBUTOR
 }
 
-model InventoryItem {
-  id           String       @id @default(uuid())
-  name         String
-  category     ItemCategory
-  serialNumber String?      @unique
-  condition    ItemCondition @default(NEW)
-  status       ItemStatus   @default(AVAILABLE)
-  createdAt    DateTime     @default(now())
+// Farmer profile
+model Farmer {
+  id                String       @id @default(cuid())
+  userId            String       @unique
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cooperativeId     String?
+  cooperative       Cooperative? @relation(fields: [cooperativeId], references: [id])
+  location          String
+  farmSize          Float?
+  certifications    String?
+  specializations   String?
+  description       String?      @db.Text
+  rating            Float?       @default(0)
   
-  borrowings    Borrowing[]
-  damageReports DamageReport[]
-
-  @@map("inventory_items")
+  // Relations
+  products          Product[]
+  productCategories ProductCategory[]
 }
 
-enum ItemCategory {
-  DEVICE
-  FURNITURE
-  CLEANING_MATERIAL
-  FOOD_UTENSIL
+// Cooperative model
+model Cooperative {
+  id          String    @id @default(cuid())
+  name        String
+  location    String
+  members     Farmer[]
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
-enum ItemCondition {
-  NEW
-  GOOD
-  WORN_OUT
-  BROKEN
+// Buyer profile
+model Buyer {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        BuyerType
+  companyName String?
+  location    String
+  preferredCategories String?
+  description String?  @db.Text
 }
 
-enum ItemStatus {
-  AVAILABLE
-  BORROWED
-  DAMAGED
-  DISPOSED
+enum BuyerType {
+  INDIVIDUAL
+  RESTAURANT
+  HOTEL
+  RETAILER
+  PROCESSOR
+  EXPORTER
+  INSTITUTION
 }
 
-model Person {
-  id             String  @id @default(uuid())
-  fullName       String
-  nationalId     String  @unique
-  email          String
-  phoneNumber    String
-  residence      String
-  assurerName    String?
-  assurerContact String?
+// Supplier profile (for agricultural inputs)
+model Supplier {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  location    String
+  products    String?
+  description String?   @db.Text
   
-  borrowings Borrowing[]
-
-  @@map("people")
+  // Relations
+  inputs      Input[]
 }
 
-model Borrowing {
-  id                 String        @id @default(uuid())
-  itemId             String
-  borrowerId         String
-  assignedById       String
-  borrowDate         DateTime
-  expectedReturnDate DateTime
-  returnDate         DateTime?
-  initialCondition   ItemCondition @default(GOOD)
-  returnCondition    ItemCondition?
-  isOverdue          Boolean       @default(false)
+// Agricultural input supplies
+model Input {
+  id          String   @id @default(cuid())
+  name        String
+  type        InputType
+  description String?  @db.Text
+  price       Float
+  unit        String
+  inStock     Int
+  image       String?
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum InputType {
+  SEED
+  FERTILIZER
+  PESTICIDE
+  TOOL
+  MACHINERY
+  OTHER
+}
+
+// Processor profile
+model Processor {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  location    String
+  processes   String?
+  capacity    String?
+  description String?  @db.Text
+}
+
+// Product categories
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?   @db.Text
+  image       String?
   
-  item       InventoryItem @relation(fields: [itemId], references: [id])
-  borrower   Person        @relation(fields: [borrowerId], references: [id])
-  assignedBy User          @relation("AssignedBy", fields: [assignedById], references: [id])
-
-  @@map("borrowings")
+  // Relations
+  products    Product[]
+  farmers     Farmer[]
 }
 
-model DamageReport {
-  id           String       @id @default(uuid())
-  itemId       String
-  reportedById String
-  reportedDate DateTime     @default(now())
-  damageReason String
-  repairStatus RepairStatus @default(PENDING)
+// Products
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  description String?        @db.Text
+  price       Float
+  unit        String
+  quantity    Int
+  images      String?        @db.Text // Comma-separated image URLs
+  categoryId  String
+  category    ProductCategory @relation(fields: [categoryId], references: [id])
+  farmerId    String
+  farmer      Farmer         @relation(fields: [farmerId], references: [id])
+  quality     String?
+  harvestDate DateTime?
+  expiryDate  DateTime?
+  isOrganic   Boolean        @default(false)
+  featured    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   
-  item       InventoryItem @relation(fields: [itemId], references: [id])
-  reportedBy User          @relation("ReportedBy", fields: [reportedById], references: [id])
-
-  @@map("damage_reports")
+  // Relations
+  orderItems  OrderItem[]
+  reviews     Review[]
 }
 
-enum RepairStatus {
+// Orders
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  buyerId         String
+  buyer           User        @relation("PlacedBy", fields: [buyerId], references: [id])
+  sellerId        String
+  seller          User        @relation("SoldBy", fields: [sellerId], references: [id])
+  status          OrderStatus @default(PENDING)
+  totalAmount     Float
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
+  deliveryAddress String?     @db.Text
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  orderItems      OrderItem[]
+  transactions    Transaction[]
+  deliveries      Delivery[]
+}
+
+enum OrderStatus {
   PENDING
-  REPAIRED
-  DISPOSED
+  CONFIRMED
+  PROCESSING
+  READY_FOR_PICKUP
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  RETURNED
 }
 
-model SystemLog {
-  id         String   @id @default(uuid())
-  userId     String
-  actionType String
-  timestamp  DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id])
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+  FAILED
+}
 
-  @@map("system_logs")
+enum PaymentMethod {
+  MOBILE_MONEY
+  BANK_TRANSFER
+  CASH_ON_DELIVERY
+  CREDIT
+}
+
+// Order items
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  subtotal  Float
+}
+
+// Financial transactions
+model Transaction {
+  id            String          @id @default(cuid())
+  orderId       String
+  order         Order           @relation(fields: [orderId], references: [id])
+  amount        Float
+  currency      String          @default("RWF")
+  status        PaymentStatus
+  type          TransactionType
+  reference     String?
+  paymentMethod PaymentMethod?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  FEE
+  WITHDRAWAL
+}
+
+// Delivery information
+model Delivery {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  status        DeliveryStatus @default(PENDING)
+  trackingId    String?
+  carrier       String?
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  pickupLocation    String?
+  destinationLocation String?
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum DeliveryStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+// Product reviews
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int      @db.TinyInt // 1-5 rating
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// User notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Market price data
+model MarketPrice {
+  id         String   @id @default(cuid())
+  productName String
+  category   String
+  price      Float
+  unit       String
+  location   String
+  date       DateTime
+  createdAt  DateTime @default(now())
+}
+
+// System settings
+model Settings {
+  id           String @id @default(cuid())
+  key          String @unique
+  value        String @db.Text
+  description  String?
 }

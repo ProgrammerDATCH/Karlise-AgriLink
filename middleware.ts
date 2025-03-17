@@ -1,71 +1,80 @@
-// middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+// src/middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { jwtVerify } from 'jose'
 
-export async function middleware(request: NextRequest) {
-  // Public paths that don't require authentication
-  const publicPaths = ["/login", "/register"];
-  
-  // Check if the current path is in the public paths
-  const isPublicPath = publicPaths.some((path) => 
-    request.nextUrl.pathname.startsWith(path)
-  );
+// Paths that require authentication
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/profile',
+  '/settings',
+  '/marketplace/checkout',
+]
 
-  if (isPublicPath) {
-    return NextResponse.next();
-  }
+// Paths that are accessible only for non-authenticated users
+const AUTH_PATHS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/forgot-password',
+]
 
-  // For API routes, we need to verify the JWT token
-  if (request.nextUrl.pathname.startsWith("/api")) {
-    const { isAuth, user } = await isAuthenticated(request);
-
-    if (!isAuth) {
-      return NextResponse.json(
-        { message: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    // For protected routes that only inventory managers can access
-    const inventoryManagerOnlyPaths = [
-      "/api/items/create",
-      "/api/items/update",
-      "/api/items/delete",
-      "/api/borrowings/create",
-      "/api/damage/create",
-    ];
-
-    const requiresInventoryManager = inventoryManagerOnlyPaths.some((path) =>
-      request.nextUrl.pathname.startsWith(path)
-    );
-
-    if (requiresInventoryManager && user?.role !== "INVENTORY_MANAGER") {
-      return NextResponse.json(
-        { message: "Insufficient permissions" },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.next();
-  }
-
-  // For page routes, we redirect to login if not authenticated
-  const { isAuth } = await isAuthenticated(request);
-
-  if (!isAuth) {
-    const url = new URL("/login", request.url);
-    url.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
+// Function to check if a path matches any of the protected paths
+const isProtectedPath = (path: string): boolean => {
+  return PROTECTED_PATHS.some(protectedPath => path.startsWith(protectedPath))
 }
 
-// Configure which paths should be protected by the middleware
+// Function to check if a path matches any of the auth-only paths
+const isAuthPath = (path: string): boolean => {
+  return AUTH_PATHS.some(authPath => path === authPath)
+}
+
+export async function middleware(request: NextRequest) {
+  // Get the pathname
+  const path = request.nextUrl.pathname
+  
+  // Get the token from cookie
+  const token = request.cookies.get('token')?.value
+  
+  // Check if user is authenticated
+  let isAuthenticated = false
+  
+  if (token) {
+    try {
+      // Verify the token
+      // In a real application, this would use a proper JWT verification with the secret
+      const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your_jwt_secret_here')
+      await jwtVerify(token, JWT_SECRET)
+      isAuthenticated = true
+    } catch (error) {
+      // Token is invalid or expired
+      isAuthenticated = false
+    }
+  }
+  
+  // Redirect authenticated users away from auth pages
+  if (isAuthenticated && isAuthPath(path)) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+  
+  // Redirect unauthenticated users away from protected pages
+  if (!isAuthenticated && isProtectedPath(path)) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+  
+  // Continue for all other cases
+  return NextResponse.next()
+}
+
 export const config = {
   matcher: [
-    // Match all routes except for static files, _next, and api/auth routes
-    // "/((?!_next/static|_next/image|favicon.ico|images).*)",
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (public directory)
+     * - api routes
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public|api).*)',
   ],
-};
+}

@@ -59,12 +59,12 @@ export async function isAuthenticated(
 }
 
 export async function createSystemLog(userId: string, actionType: string) {
-  await prisma.systemLog.create({
-    data: {
-      userId,
-      actionType,
-    },
-  });
+  // await prisma.systemLog.create({
+  //   data: {
+  //     userId,
+  //     actionType,
+  //   },
+  // });
 }
 
 export function checkPermission(userRole: string, requiredRole: string): boolean {
