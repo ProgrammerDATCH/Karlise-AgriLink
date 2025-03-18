@@ -1,3 +1,4 @@
+// components/layout/navbar.tsx
 'use client'
 
 import { useState } from 'react'
@@ -53,12 +54,12 @@ const mainNavItems = [
   },
   {
     title: 'Sell',
-    href: '/dashboard/farmer',
+    href: '/dashboard/farmer/products/add',
     description: 'List your agricultural products on AGRILINK Rwanda',
   },
   {
     title: 'Buy',
-    href: '/dashboard/buyer',
+    href: '/marketplace/products',
     description: 'Purchase agricultural products from trusted farmers and suppliers',
   },
   {
@@ -178,13 +179,13 @@ export default function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/profile">
+                  <Link href="/dashboard/profile">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
+                  <Link href="/dashboard/settings">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
@@ -271,9 +272,20 @@ export default function Navbar() {
                 </div>
                 <div className="flex flex-col gap-4 pt-4">
                   {isAuthenticated ? (
-                    <Link href="/dashboard" onClick={() => setIsOpen(false)}>
-                      <Button className="w-full" variant="outline">Dashboard</Button>
-                    </Link>
+                    <>
+                      <Link href="/dashboard" onClick={() => setIsOpen(false)}>
+                        <Button className="w-full" variant="outline">Dashboard</Button>
+                      </Link>
+                      <Button 
+                        className="w-full bg-red-600 hover:bg-red-700"
+                        onClick={() => {
+                          handleLogout();
+                          setIsOpen(false);
+                        }}
+                      >
+                        Logout
+                      </Button>
+                    </>
                   ) : (
                     <>
                       <Link href="/auth/login" onClick={() => setIsOpen(false)}>

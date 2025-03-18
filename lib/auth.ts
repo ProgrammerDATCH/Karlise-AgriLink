@@ -1,49 +1,36 @@
-// src/lib/auth.ts
-import { NextRequest, NextResponse } from "next/server";
+// lib/auth.ts
+import { NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { cookies } from "next/headers";
 
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || "your-fallback-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET || "your_fallback_secret_key";
 
-export type JWTPayload = {
+export type AuthUser = {
   userId: string;
-  role: string;
   email: string;
+  role: string;
+  iat?: number;
+  exp?: number;
 };
 
-export async function hashPassword(password: string): Promise<string> {
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
-  return hashedPassword;
-}
-
-export async function comparePasswords(
-  providedPassword: string,
-  storedHash: string
-): Promise<boolean> {
-  return await bcrypt.compare(providedPassword, storedHash);
-}
-
-export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
-}
-
-export function verifyToken(token: string): JWTPayload | null {
+// Verify a JWT token
+export function verifyToken(token: string): AuthUser | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, JWT_SECRET) as AuthUser;
   } catch (error) {
     return null;
   }
 }
 
-export async function isAuthenticated(
-  request: NextRequest
-): Promise<{ isAuth: boolean; user?: JWTPayload }> {
-  // Get token from cookies or Authorization header
+// Check if a request is authenticated
+export async function isAuthenticated(request: NextRequest): Promise<{
+  isAuth: boolean;
+  user?: AuthUser;
+}> {
+  // Get token from cookie (for server-side) or Authorization header (for API)
+  const cookieStore = await cookies();
   const token =
-    request.cookies.get("token")?.value ||
+    cookieStore.get("auth_token")?.value ||
     request.headers.get("Authorization")?.split(" ")[1];
 
   if (!token) {
@@ -56,21 +43,4 @@ export async function isAuthenticated(
   }
 
   return { isAuth: true, user: decoded };
-}
-
-export async function createSystemLog(userId: string, actionType: string) {
-  // await prisma.systemLog.create({
-  //   data: {
-  //     userId,
-  //     actionType,
-  //   },
-  // });
-}
-
-export function checkPermission(userRole: string, requiredRole: string): boolean {
-  // Simple role check - can be expanded for more complex permission systems
-  if (requiredRole === "INVENTORY_MANAGER" && userRole !== "INVENTORY_MANAGER") {
-    return false;
-  }
-  return true;
 }

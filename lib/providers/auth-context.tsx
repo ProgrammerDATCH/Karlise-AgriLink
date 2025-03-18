@@ -1,22 +1,45 @@
+// lib/providers/auth-context.tsx
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { User } from '@prisma/client'
 import { useRouter } from 'next/navigation'
-import { login, register, logout, getCurrentUser, LoginCredentials, RegisterData, AuthResult } from '@/lib/auth-service'
+import { toast } from 'sonner'
+
+// Types
+type AuthUser = {
+  id: string
+  name: string
+  email: string
+  role: string
+  image?: string | null
+}
+
+type LoginCredentials = {
+  email: string
+  password: string
+  rememberMe?: boolean
+}
+
+type RegisterData = {
+  name: string
+  email: string
+  phone: string
+  password: string
+  role: 'FARMER' | 'BUYER' | 'PROCESSOR' | 'SUPPLIER'
+}
 
 type AuthContextType = {
-  user: Partial<User> | null
+  user: AuthUser | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (credentials: LoginCredentials) => Promise<AuthResult>
-  register: (data: RegisterData) => Promise<AuthResult>
-  logout: () => Promise<boolean>
+  login: (credentials: LoginCredentials) => Promise<boolean>
+  register: (data: RegisterData) => Promise<boolean>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Auth token handling functions (client-side only)
+// Auth token handling functions
 const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('auth_token')
@@ -36,14 +59,14 @@ const removeAuthToken = (): void => {
   }
 }
 
-// User data handling functions (client-side only)
-const setUserData = (user: Partial<User>): void => {
+// User data handling functions
+const setUserData = (user: AuthUser): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('user_data', JSON.stringify(user))
   }
 }
 
-const getUserData = (): Partial<User> | null => {
+const getUserData = (): AuthUser | null => {
   if (typeof window !== 'undefined') {
     const userData = localStorage.getItem('user_data')
     if (userData) {
@@ -64,7 +87,7 @@ const removeUserData = (): void => {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<Partial<User> | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const router = useRouter()
 
@@ -80,12 +103,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userData && token) {
           // User is logged in from localStorage
           setUser(userData)
-        } else {
-          // If not in localStorage, try to get from API
-          const currentUser = await getCurrentUser()
-          if (currentUser) {
-            setUser(currentUser)
-            setUserData(currentUser)
+          
+          // Verify token with backend
+          try {
+            const response = await fetch('/api/auth/verify', {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            })
+            
+            if (!response.ok) {
+              // Token is invalid, clear auth state
+              removeAuthToken()
+              removeUserData()
+              setUser(null)
+            }
+          } catch (error) {
+            console.error('Failed to verify token:', error)
+            // Clear auth state on error
+            removeAuthToken()
+            removeUserData()
+            setUser(null)
           }
         }
       } catch (error) {
@@ -101,58 +139,110 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth()
   }, [])
 
-  const handleLogin = async (credentials: LoginCredentials): Promise<AuthResult> => {
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
     setIsLoading(true)
     try {
-      const result = await login(credentials)
-      if (result.success && result.user && result.token) {
-        setUser(result.user)
-        
-        // Save to localStorage
-        setAuthToken(result.token)
-        setUserData(result.user)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed')
       }
-      return result
+      
+      if (data.token && data.user) {
+        // Save auth data
+        setAuthToken(data.token)
+        setUserData(data.user)
+        setUser(data.user)
+        
+        // Show success message
+        toast.success('Login successful', {
+          description: `Welcome back, ${data.user.name}!`,
+        })
+        
+        return true
+      }
+      
+      return false
     } catch (error) {
       console.error('Login error:', error)
-      throw error
+      toast.error('Login failed', {
+        description: error instanceof Error ? error.message : 'Invalid credentials',
+      })
+      return false
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleRegister = async (data: RegisterData): Promise<AuthResult> => {
+  const register = async (data: RegisterData): Promise<boolean> => {
     setIsLoading(true)
     try {
-      const result = await register(data)
-      // Don't automatically log in after registration
-      // The user should verify email first or go through login
-      return result
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      
+      const responseData = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Registration failed')
+      }
+      
+      toast.success('Registration successful', {
+        description: 'Your account has been created. Please log in.',
+      })
+      
+      return true
     } catch (error) {
       console.error('Registration error:', error)
-      throw error
+      toast.error('Registration failed', {
+        description: error instanceof Error ? error.message : 'Please try again',
+      })
+      return false
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleLogout = async (): Promise<boolean> => {
+  const logout = async (): Promise<void> => {
     setIsLoading(true)
     try {
-      const success = await logout()
-      if (success) {
-        // Clear user state and localStorage
-        setUser(null)
-        removeAuthToken()
-        removeUserData()
-        
-        // Redirect to home page
-        router.push('/')
-      }
-      return success
+      // Call logout API
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+      })
+      
+      // Clear auth state regardless of API response
+      removeAuthToken()
+      removeUserData()
+      setUser(null)
+      
+      // Show success message
+      toast.success('Logged out successfully')
+      
+      // Redirect to home page
+      router.push('/')
     } catch (error) {
       console.error('Logout error:', error)
-      throw error
+      // Still clear auth state on error
+      removeAuthToken()
+      removeUserData()
+      setUser(null)
     } finally {
       setIsLoading(false)
     }
@@ -164,9 +254,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        login: handleLogin,
-        register: handleRegister,
-        logout: handleLogout,
+        login,
+        register,
+        logout,
       }}
     >
       {children}

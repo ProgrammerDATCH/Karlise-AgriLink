@@ -1,14 +1,14 @@
-// src/app/api/auth/register/route.ts
+// app/api/auth/register/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { hashPassword, createSystemLog } from "@/lib/auth";
 import prisma from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
   try {
-    const { fullName, email, password, phoneNumber, role } = await request.json();
+    const { name, email, password, phone, role } = await request.json();
 
-    // Validate input
-    if (!fullName || !email || !password || !phoneNumber || !role) {
+    // Input validation
+    if (!name || !email || !password || !role) {
       return NextResponse.json(
         { message: "All fields are required" },
         { status: 400 }
@@ -28,31 +28,71 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash password
-    const passwordHash = await hashPassword(password);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
-    const user = await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        passwordHash,
-        phoneNumber,
-        role: role === "INVENTORY_MANAGER" ? "INVENTORY_MANAGER" : "PROGRAM_MANAGER",
-      },
+    // Create transaction to create user and role-specific profile
+    const user = await prisma.$transaction(async (tx) => {
+      // Create user
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          phone: phone || null,
+          role,
+        },
+      });
+
+      // Create role-specific profile based on user role
+      switch (role) {
+        case "FARMER":
+          await tx.farmer.create({
+            data: {
+              userId: newUser.id,
+              location: "Rwanda", // Default value, update later
+            },
+          });
+          break;
+        case "BUYER":
+          await tx.buyer.create({
+            data: {
+              userId: newUser.id,
+              type: "INDIVIDUAL", // Default value, update later
+              location: "Rwanda", // Default value, update later
+            },
+          });
+          break;
+        case "PROCESSOR":
+          await tx.processor.create({
+            data: {
+              userId: newUser.id,
+              companyName: name, // Use name as default, update later
+              location: "Rwanda", // Default value, update later
+            },
+          });
+          break;
+        case "SUPPLIER":
+          await tx.supplier.create({
+            data: {
+              userId: newUser.id,
+              companyName: name, // Use name as default, update later
+              location: "Rwanda", // Default value, update later
+            },
+          });
+          break;
+      }
+
+      return newUser;
     });
 
-    // Log the registration
-    await createSystemLog(user.id, "User registered");
-
+    // Return success message (exclude password)
+    const { password: _, ...userWithoutPassword } = user;
+    
     return NextResponse.json({
       message: "Registration successful",
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
+      user: userWithoutPassword,
     });
+    
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json(

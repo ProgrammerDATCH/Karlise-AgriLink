@@ -1,3 +1,4 @@
+// app/auth/register/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -7,7 +8,6 @@ import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -47,8 +47,7 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const { register: registerUser } = useAuth()
+  const { register, isLoading } = useAuth()
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
@@ -64,39 +63,19 @@ export default function RegisterPage() {
   })
 
   async function onSubmit(data: RegisterFormValues) {
-    setIsLoading(true)
-
-    try {
-      const result = await registerUser({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        password: data.password,
-        role: data.role,
-      })
-
-      if (result.success) {
-        toast.success("Registration successful", {
-          description: "Your account has been created. Please check your email for verification.",
-        })
-
-        // Redirect to login page
-        router.push('/auth/login')
-      } else {
-        toast.error("Registration failed", {
-          description: result.message || "There was a problem with your registration. Please try again.",
-        })
-      }
-    } catch (error) {
-      console.error('Registration error:', error)
-      toast.error("Registration failed", {
-        description: "An unexpected error occurred. Please try again later.",
-      })
-    } finally {
-      setIsLoading(false)
+    const success = await register({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      password: data.password,
+      role: data.role,
+    })
+    
+    if (success) {
+      // Redirect to login page
+      router.push('/auth/login')
     }
   }
-
 
   return (
     <div className="container py-8">
@@ -290,13 +269,21 @@ export default function RegisterPage() {
             <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
           </div>
           <Button variant="outline" className="w-full">
-            <Image
-              src="/images/google-logo.svg"
-              alt="Google"
-              width={20}
-              height={20}
-              className="mr-2"
-            />
+            <svg
+              className="mr-2 h-4 w-4"
+              aria-hidden="true"
+              focusable="false"
+              data-prefix="fab"
+              data-icon="google"
+              role="img"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 488 512"
+            >
+              <path
+                fill="currentColor"
+                d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+              ></path>
+            </svg>
             Sign up with Google
           </Button>
           <div className="text-center text-sm">

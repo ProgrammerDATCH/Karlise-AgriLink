@@ -1,3 +1,4 @@
+// components/layout/footer.tsx
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,7 +43,7 @@ export default function Footer() {
             <h3 className="text-lg font-semibold">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/marketplace" className="text-green-200 hover:text-white text-sm">
+                <Link href="/marketplace/products" className="text-green-200 hover:text-white text-sm">
                   Marketplace
                 </Link>
               </li>
@@ -52,18 +53,18 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard/farmer" className="text-green-200 hover:text-white text-sm">
+                <Link href="/dashboard/farmer/products/add" className="text-green-200 hover:text-white text-sm">
                   Sell on AGRILINK
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard/buyer" className="text-green-200 hover:text-white text-sm">
+                <Link href="/marketplace/products" className="text-green-200 hover:text-white text-sm">
                   Buy on AGRILINK
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="text-green-200 hover:text-white text-sm">
-                  Blog
+                <Link href="/contact" className="text-green-200 hover:text-white text-sm">
+                  Contact Us
                 </Link>
               </li>
             </ul>
@@ -75,7 +76,7 @@ export default function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start space-x-2 text-sm">
                 <MapPin className="h-5 w-5 text-green-400 shrink-0 mt-0.5" />
-                <span className="text-green-200">Kigali, Rwanda</span>
+                <span className="text-green-200">KK 15 Ave, Kigali Innovation City<br/>Kigali, Rwanda</span>
               </li>
               <li className="flex items-center space-x-2 text-sm">
                 <Phone className="h-5 w-5 text-green-400 shrink-0" />
@@ -94,16 +95,26 @@ export default function Footer() {
             <p className="text-green-200 text-sm">
               Subscribe to our newsletter for the latest agricultural market updates and news.
             </p>
-            <div className="flex flex-col space-y-2">
+            <form className="flex flex-col space-y-2" onSubmit={(e) => {
+              e.preventDefault();
+              // Here you would handle the newsletter subscription
+              // For now just provide visual feedback
+              const input = e.currentTarget.querySelector('input');
+              if (input && input.value) {
+                alert(`Thank you for subscribing with: ${input.value}`);
+                input.value = '';
+              }
+            }}>
               <Input 
                 type="email" 
                 placeholder="Your email" 
                 className="bg-green-900 border-green-700 text-white placeholder:text-green-400"
+                required
               />
-              <Button className="bg-green-600 hover:bg-green-700 w-full">
+              <Button type="submit" className="bg-green-600 hover:bg-green-700 w-full">
                 Subscribe
               </Button>
-            </div>
+            </form>
           </div>
         </div>
         

@@ -31,6 +31,7 @@ model User {
   orders        Order[]   @relation("PlacedBy")
   notifications Notification[]
   sellerOrders  Order[]   @relation("SoldBy")
+  cartItems  CartItem[]
 }
 
 enum UserRole {
@@ -181,6 +182,7 @@ model Product {
   // Relations
   orderItems  OrderItem[]
   reviews     Review[]
+  cartItems  CartItem[]
 }
 
 // Orders
@@ -336,4 +338,16 @@ model Settings {
   key          String @unique
   value        String @db.Text
   description  String?
+}
+
+// Add this to your schema.prisma file
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
