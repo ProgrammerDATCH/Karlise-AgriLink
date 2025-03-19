@@ -62,7 +62,7 @@ export default function RegisterPage() {
     },
   })
 
-  async function onSubmit(data: RegisterFormValues) {
+  const onSubmit = async (data: RegisterFormValues) => {
     const success = await register({
       name: data.name,
       email: data.email,

@@ -1,9 +1,7 @@
-// app/auth/login/page.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
@@ -71,7 +69,9 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form 
+            onSubmit={form.handleSubmit(onSubmit)} 
+            className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"

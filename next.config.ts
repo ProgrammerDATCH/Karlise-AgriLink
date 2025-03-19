@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config: any, { isServer }: any) => {
+  // Disable static page generation - this avoids prerendering during build
+  output: 'standalone',
+  
+  // Disable image optimization for exported static sites
+  images: { unoptimized: true },
+  
+  webpack: (config, { isServer }) => {
     // Only on the client side
     if (!isServer) {
       // Don't attempt to load these packages on the client side
@@ -18,21 +24,16 @@ const nextConfig = {
     }
     return config;
   },
-  experimental: {
-    // Fix for turbopack issues
-    turbo: {
-      rules: {
-        // Resolve HTML files properly with Turbopack
-        "*.html": ["raw-loader"],
-      },
-    },
-  },
-  eslint:{
+  
+  eslint: {
     ignoreDuringBuilds: true
   },
+  
   typescript: {
     ignoreBuildErrors: true
   }
 };
 
 module.exports = nextConfig;
+
+export const ENABLE_STATIC_EXPORT = true;

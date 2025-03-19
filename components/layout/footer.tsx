@@ -1,10 +1,23 @@
-// components/layout/footer.tsx
+'use client'
+
 import Link from 'next/link'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react'
 
 export default function Footer() {
+  const [email, setEmail] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Here you would handle the newsletter subscription
+    if (email) {
+      alert(`Thank you for subscribing with: ${email}`);
+      setEmail('');
+    }
+  };
+
   return (
     <footer className="bg-green-950 text-green-50">
       <div className="container px-4 md:px-6 py-12 md:py-16">
@@ -95,21 +108,14 @@ export default function Footer() {
             <p className="text-green-200 text-sm">
               Subscribe to our newsletter for the latest agricultural market updates and news.
             </p>
-            <form className="flex flex-col space-y-2" onSubmit={(e) => {
-              e.preventDefault();
-              // Here you would handle the newsletter subscription
-              // For now just provide visual feedback
-              const input = e.currentTarget.querySelector('input');
-              if (input && input.value) {
-                alert(`Thank you for subscribing with: ${input.value}`);
-                input.value = '';
-              }
-            }}>
+            <form className="flex flex-col space-y-2" onSubmit={handleSubmit}>
               <Input 
                 type="email" 
                 placeholder="Your email" 
                 className="bg-green-900 border-green-700 text-white placeholder:text-green-400"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <Button type="submit" className="bg-green-600 hover:bg-green-700 w-full">
                 Subscribe
